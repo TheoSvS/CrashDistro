@@ -31,6 +31,9 @@ public class CrawlHistoryPanel {
     static WebDriver driver;
     static ExecutorService executorService = Executors.newCachedThreadPool();
 
+    //tracks casino's balance changes since the program was running
+    private BigDecimal currentEnemyBalance = BigDecimal.ZERO;
+
     public CrawlHistoryPanel() throws InterruptedException {
         ChromeOptions options = new ChromeOptions();
 
@@ -104,39 +107,68 @@ public class CrawlHistoryPanel {
                         Optional.empty()
                 )
         );
+
         devTools.addListener(Network.requestWillBeSent(),
                 requestWillBeSent -> {
                     Request request = requestWillBeSent.getRequest();
                     String url = request.getUrl();
 
-                    // Check if its the icon-sending request
+                    // Check if its the icon-sending request (signifying the end of game round)
                     if (url.contains("icon-sending")) {
-                        //System.out.println("Intercepted request for icon-countdown: " + url);
-                        List<BigDecimal> crashData = null;
-                        try {
-                            crashData = crawlHistory();
-                        } catch (InterruptedException e) {
-                            throw new RuntimeException(e);
-                        }
-                        Utils.calculateData(crashData, new BigDecimal("158"));
-                        Utils.calculateData(crashData, new BigDecimal("200"));
-                        Utils.calculateData(crashData, new BigDecimal("300"));
-                        Utils.calculateData(crashData, new BigDecimal("400"));
-                        Utils.calculateData(crashData, new BigDecimal("500"));
-                        Utils.calculateData(crashData, new BigDecimal("600"));
-                        Utils.calculateData(crashData, new BigDecimal("700"));
-                        Utils.calculateData(crashData, new BigDecimal("800"));
-                        Utils.calculateData(crashData, new BigDecimal("900"));
-                        Utils.calculateData(crashData, new BigDecimal("1000"));
-                        Utils.calculateData(crashData, new BigDecimal("1200"));
-                        Utils.calculateData(crashData, new BigDecimal("1400"));
-                        Utils.calculateData(crashData, new BigDecimal("1700"));
-                        Utils.calculateData(crashData, new BigDecimal("2000"));
-                        Utils.calculateData(crashData, new BigDecimal("2500"));
-                        Utils.calculateData(crashData, new BigDecimal("3000"));
+                        storeEnemyBankBalanceChange();
+                        calculateOutputWinningRatios();
                     }
                 }
         );
+    }
+
+    private void storeEnemyBankBalanceChange() {
+        //Locate all row elements under recordmain:
+        List<WebElement> rowElements = driver.findElements(
+                By.cssSelector("div.recordmain div.item")
+        );
+
+        List<PlayerRoundStats> records = new ArrayList<>();
+
+        // For each row select .r2, .r3, .r4
+        for (WebElement row : rowElements) {
+            String betAmount    = row.findElement(By.cssSelector(".r2")).getText();
+            String totalOutput  = row.findElement(By.cssSelector(".r3")).getText();
+            String cashoutLevel = row.findElement(By.cssSelector(".r4")).getText();
+
+            // Create record object
+            PlayerRoundStats record = new PlayerRoundStats(betAmount, totalOutput, cashoutLevel);
+            records.add(record);
+        }
+        BigDecimal enemyBankBalanceChange = records.stream().map(rec-> new BigDecimal(rec.betAmount()).subtract(new BigDecimal(rec.totalOutput()))).reduce(BigDecimal.ZERO, BigDecimal::add);
+        currentEnemyBalance = currentEnemyBalance.add(enemyBankBalanceChange);
+        Utils.storeEnemyBankBalance(currentEnemyBalance,enemyBankBalanceChange);
+    }
+
+    private void calculateOutputWinningRatios() {
+        //System.out.println("Intercepted request for icon-countdown: " + url);
+        List<BigDecimal> crashData = null;
+        try {
+            crashData = crawlHistory();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        Utils.storeBettingOutputs(crashData, new BigDecimal("158"));
+        Utils.storeBettingOutputs(crashData, new BigDecimal("200"));
+        Utils.storeBettingOutputs(crashData, new BigDecimal("300"));
+        Utils.storeBettingOutputs(crashData, new BigDecimal("400"));
+        Utils.storeBettingOutputs(crashData, new BigDecimal("500"));
+        Utils.storeBettingOutputs(crashData, new BigDecimal("600"));
+        Utils.storeBettingOutputs(crashData, new BigDecimal("700"));
+        Utils.storeBettingOutputs(crashData, new BigDecimal("800"));
+        Utils.storeBettingOutputs(crashData, new BigDecimal("900"));
+        Utils.storeBettingOutputs(crashData, new BigDecimal("1000"));
+        Utils.storeBettingOutputs(crashData, new BigDecimal("1200"));
+        Utils.storeBettingOutputs(crashData, new BigDecimal("1400"));
+        Utils.storeBettingOutputs(crashData, new BigDecimal("1700"));
+        Utils.storeBettingOutputs(crashData, new BigDecimal("2000"));
+        Utils.storeBettingOutputs(crashData, new BigDecimal("2500"));
+        Utils.storeBettingOutputs(crashData, new BigDecimal("3000"));
     }
 
 
@@ -148,7 +180,7 @@ public class CrawlHistoryPanel {
             WebElement maskElement = driver.findElement(By.cssSelector("div.mask.fade-enter-from.fade-leave-from.fade-leave-active"));
             // Retrieve the complete HTML (including the element itself)
             String fullHtml = maskElement.getAttribute("outerHTML");
-            Utils.storeData(BigDecimal.ONE,fullHtml);
+            Utils.storeBetOutputData(BigDecimal.ONE, fullHtml);
             System.exit(4);
         }
         try {
@@ -195,12 +227,29 @@ public class CrawlHistoryPanel {
     }
 
     private void openHistoryPanel() {
-        //Thread.sleep(getRandom(1,2)*1000); //to make sure the "IN PROGRESS" field is filled
+        awaitInterferingMask();
         // Locate and click the button to open the popup
         WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10)); // 100-ms timeout
         WebElement historyButton = wait.until(ExpectedConditions.presenceOfElementLocated(By.className("i_his")));
         wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector(".icon.i_his")));
         historyButton.click();
+    }
+
+    private void awaitInterferingMask() {
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(5));
+
+        //Check if the fade mask is currently present
+        List<WebElement> fadeMasks = driver.findElements(
+                By.cssSelector("div.mask.fade-enter-from, div.mask.fade-leave-from, div.mask.fade-leave-active")
+        );
+
+        //If found, wait for it to go away
+        if (!fadeMasks.isEmpty()) {
+            //wait.until(ExpectedConditions.invisibilityOfElementLocated(By.cssSelector("div.mask")));
+            wait.until(ExpectedConditions.invisibilityOfElementLocated(
+                    By.cssSelector("div.mask.fade-enter-from, div.mask.fade-leave-from, div.mask.fade-leave-active")
+            ));
+        }
     }
 
     private void awaitUntilCrashValuesExist() {
@@ -228,7 +277,7 @@ public class CrawlHistoryPanel {
     }
 
     private void closeBanner() throws InterruptedException {
-        // Wait until the banner is present (adjust the timeout as needed)
+        // close initial banner with a random delay to make interaction seem more "humanlike"
         Thread.sleep(getRandom(3, 5) * 1000);
         WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10)); // 100-ms timeout
         WebElement closeButton = wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("i.icon-close")));
@@ -243,8 +292,15 @@ public class CrawlHistoryPanel {
         return ThreadLocalRandom.current().nextInt(from, to + 1);
     }
 
+    public BigDecimal getCurrentEnemyBalance() {
+        return currentEnemyBalance;
+    }
 
-//class="mask fade-enter-from fade-leave-from fade-leave-active">
+    public void setCurrentEnemyBalance(BigDecimal currentEnemyBalance) {
+        this.currentEnemyBalance = currentEnemyBalance;
+    }
+
+    //class="mask fade-enter-from fade-leave-from fade-leave-active">
 
     // Locate the panel and extract the content
     //By historyBoardLocatedBy = By.cssSelector(".mask .main.pc");
