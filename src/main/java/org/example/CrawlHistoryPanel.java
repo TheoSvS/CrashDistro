@@ -34,6 +34,9 @@ public class CrawlHistoryPanel {
     //tracks casino's balance changes since the program was running
     private BigDecimal currentEnemyBalance = BigDecimal.ZERO;
 
+    private Long latestRound = 0L;
+    private List<BigDecimal> crashLevelsSinceStart = new ArrayList<>();
+
     public CrawlHistoryPanel() throws InterruptedException {
         ChromeOptions options = new ChromeOptions();
 
@@ -132,48 +135,46 @@ public class CrawlHistoryPanel {
 
         // For each row select .r2, .r3, .r4
         for (WebElement row : rowElements) {
-            String betAmount    = row.findElement(By.cssSelector(".r2")).getText();
-            String totalOutput  = row.findElement(By.cssSelector(".r3")).getText();
+            String betAmount = row.findElement(By.cssSelector(".r2")).getText();
+            String totalOutput = row.findElement(By.cssSelector(".r3")).getText();
             String cashoutLevel = row.findElement(By.cssSelector(".r4")).getText();
 
             // Create record object
             PlayerRoundStats record = new PlayerRoundStats(betAmount, totalOutput, cashoutLevel);
             records.add(record);
         }
-        BigDecimal enemyBankBalanceChange = records.stream().map(rec-> new BigDecimal(rec.betAmount()).subtract(new BigDecimal(rec.totalOutput()))).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal enemyBankBalanceChange = records.stream().map(rec -> new BigDecimal(rec.betAmount()).subtract(new BigDecimal(rec.totalOutput()))).reduce(BigDecimal.ZERO, BigDecimal::add);
         currentEnemyBalance = currentEnemyBalance.add(enemyBankBalanceChange);
-        Utils.storeEnemyBankBalance(currentEnemyBalance,enemyBankBalanceChange);
+        Utils.storeEnemyBankBalance(currentEnemyBalance, enemyBankBalanceChange);
     }
 
     private void calculateOutputWinningRatios() {
-        //System.out.println("Intercepted request for icon-countdown: " + url);
-        List<BigDecimal> crashData = null;
         try {
-            crashData = crawlHistory();
+            Optional<CrashLevels> crashLevelsOpt = crawlHistory();
+            Utils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("158"));
+            Utils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("200"));
+            Utils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("300"));
+            Utils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("400"));
+            Utils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("500"));
+            Utils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("600"));
+            Utils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("700"));
+            Utils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("800"));
+            Utils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("900"));
+            Utils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("1000"));
+            Utils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("1200"));
+            Utils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("1400"));
+            Utils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("1700"));
+            Utils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("2000"));
+            Utils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("2500"));
+            Utils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("3000"));
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
-        Utils.storeBettingOutputs(crashData, new BigDecimal("158"));
-        Utils.storeBettingOutputs(crashData, new BigDecimal("200"));
-        Utils.storeBettingOutputs(crashData, new BigDecimal("300"));
-        Utils.storeBettingOutputs(crashData, new BigDecimal("400"));
-        Utils.storeBettingOutputs(crashData, new BigDecimal("500"));
-        Utils.storeBettingOutputs(crashData, new BigDecimal("600"));
-        Utils.storeBettingOutputs(crashData, new BigDecimal("700"));
-        Utils.storeBettingOutputs(crashData, new BigDecimal("800"));
-        Utils.storeBettingOutputs(crashData, new BigDecimal("900"));
-        Utils.storeBettingOutputs(crashData, new BigDecimal("1000"));
-        Utils.storeBettingOutputs(crashData, new BigDecimal("1200"));
-        Utils.storeBettingOutputs(crashData, new BigDecimal("1400"));
-        Utils.storeBettingOutputs(crashData, new BigDecimal("1700"));
-        Utils.storeBettingOutputs(crashData, new BigDecimal("2000"));
-        Utils.storeBettingOutputs(crashData, new BigDecimal("2500"));
-        Utils.storeBettingOutputs(crashData, new BigDecimal("3000"));
     }
 
 
-    public List<BigDecimal> crawlHistory() throws InterruptedException {
-        List<BigDecimal> crashValues;
+    public Optional<CrashLevels> crawlHistory() throws InterruptedException {
+        CrashLevels crashLevels;
         try {
             openHistoryPanel();
         } catch (Exception e) {
@@ -188,12 +189,12 @@ public class CrawlHistoryPanel {
         } catch (Exception e) {
             closeHistoryPanel(); //sometimes history Panel is loaded empty so catch the exception and close the history again.
             System.err.println("Loaded empty history panel, closing again");
-            return new ArrayList<>(); //empty
+            return Optional.empty(); //empty
         }
-        crashValues = collectCrashValues();
+        crashLevels = collectCrashValues();
         closeHistoryPanel();
 
-        return crashValues;
+        return Optional.of(crashLevels);
     }
 
     /**
@@ -212,19 +213,48 @@ public class CrawlHistoryPanel {
         });
     }
 
-    private List<BigDecimal> collectCrashValues() {
-        List<BigDecimal> crashData = new ArrayList<>();
-        List<WebElement> crashElements = driver.findElements(By.cssSelector(".r_item .td:nth-child(4)")); //get the crash values from rows
-        for (int i = 0; i < crashElements.size(); i++) {
-            String crashVal = crashElements.get(i).getText();
-            if (crashVal.toLowerCase().contains("progress")) {
+//    private List<BigDecimal> collectCrashValues() {
+//        List<BigDecimal> crashData = new ArrayList<>();
+//        List<WebElement> crashElements = driver.findElements(By.cssSelector(".r_item .td:nth-child(4)")); //get the crash values from rows
+//        for (int i = 0; i < crashElements.size(); i++) {
+//            String crashVal = crashElements.get(i).getText();
+//            if (crashVal.toLowerCase().contains("progress")) {
+//                continue; // Sometimes IN PROGRESS game is already loaded so skip it from parsing
+//            }
+//
+//            crashData.add(new BigDecimal(crashVal.replace("%", "")));
+//        }
+//        return crashData;
+//    }
+
+
+    private CrashLevels collectCrashValues() {
+        List<BigDecimal> last100CrashLevels = new ArrayList<>();
+        List<WebElement> rows = driver.findElements(By.cssSelector(".r_item"));
+        for (WebElement row : rows) {
+            List<WebElement> cells = row.findElements(By.cssSelector(".td"));
+            String crashValueStr = cells.get(3).getText().replace("%", "");
+            String roundStr = cells.get(4).getText();
+            if (crashValueStr.toLowerCase().contains("progress")) {
                 continue; // Sometimes IN PROGRESS game is already loaded so skip it from parsing
             }
-            //System.out.println("CrashData: " + crashVal);
-            crashData.add(new BigDecimal(crashVal.replace("%", "")));
+            BigDecimal crashValue = new BigDecimal(crashValueStr);
+            Long round = Long.parseLong(roundStr);
+            setLatestRound(round, crashValue);
+            last100CrashLevels.add(crashValue);
         }
-        return crashData;
+        return new CrashLevels(last100CrashLevels, crashLevelsSinceStart);
     }
+
+    private void setLatestRound(Long round, BigDecimal crashValue) {
+        if (round > latestRound) {
+            latestRound = round;
+            crashLevelsSinceStart.add(crashValue);
+        }
+    }
+
+    //String latestRndStr = crashElements.get(i).getText();
+    //latestRound
 
     private void openHistoryPanel() {
         awaitInterferingMask();
@@ -260,7 +290,7 @@ public class CrawlHistoryPanel {
                 List<WebElement> crashValues = webDriver.findElements(
                         By.cssSelector(".r_item .td:nth-child(4)"));
 
-                // If we expect at least 1 row, ensure the list isn't empty
+                //ensure the list isn't empty
                 if (crashValues.isEmpty()) {
                     return false;  // Keep waiting
                 }

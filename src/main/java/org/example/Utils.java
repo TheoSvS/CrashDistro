@@ -18,32 +18,38 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 public class Utils {
 
 
-    static void storeBettingOutputs(List<BigDecimal> last100, BigDecimal cashOutLvL) {
-        if (last100.isEmpty()) {
+    static void storeBettingOutputs(Optional<CrashLevels> crashLevels, BigDecimal cashOutLvL) {
+        if (crashLevels.isEmpty()) {
             return;
         }
 
+        List<BigDecimal> crashLevelsSinceStart = crashLevels.get().crashLevelsSinceStart();
+        List<BigDecimal> last100 = crashLevels.get().last100CrashLevels();
         List<BigDecimal> last30 = last100.subList(0, 30);
-        BetOutputs last100Outputs = calculateWinningOutputs(last100, cashOutLvL);
-        BetOutputs last30Outputs = calculateWinningOutputs(last30, cashOutLvL);
 
-        // Format to exactly 80 characters, left-aligned with trailing spaces, truncated if > 80
-        String printable100 = String.format("%-50s", last100Outputs.output() + last100Outputs.winRatio());
-        String printable30 = last30Outputs.output() + " " + last30Outputs.winRatio();
-
-        System.out.print("===Time: " + getTime() + " ===");
-        System.out.println(printable100 + "   " + printable30);
+        BetOutputMessages crashLevelsSinceStartOutputs = calculateWinningOutputs(crashLevelsSinceStart, cashOutLvL);
+        BetOutputMessages last10Outputs = calculateWinningOutputs(last100, cashOutLvL);
+        BetOutputMessages last3Outputs = calculateWinningOutputs(last30, cashOutLvL);
 
 
-        storeBetOutputData(cashOutLvL, "===Time: " + getTime() + " ===");
-        storeBetOutputData(cashOutLvL, printable100 + "   " + printable30 + System.lineSeparator());
+        String printableCrashLevelsSinceStart = String.format("%-37s", crashLevelsSinceStartOutputs.output() + crashLevelsSinceStartOutputs.winRatio());
+        String printable100 = String.format("%-43s", last10Outputs.output() + last10Outputs.winRatio());
+        String printable30 = last3Outputs.output() + " " + last3Outputs.winRatio();
+
+        System.out.print(getTime() + " ===");
+        System.out.println(printableCrashLevelsSinceStart + "   " + printable100 + "   " + printable30);
+
+
+        storeBetOutputData(cashOutLvL, getTime() + " ===");
+        storeBetOutputData(cashOutLvL, printableCrashLevelsSinceStart + "   " + printable100 + "   " + printable30 + System.lineSeparator());
     }
 
-    private static BetOutputs calculateWinningOutputs(List<BigDecimal> lastXrounds, BigDecimal cashOutLvL) {
+    private static BetOutputMessages calculateWinningOutputs(List<BigDecimal> lastXrounds, BigDecimal cashOutLvL) {
         long losses = lastXrounds.stream().filter(e -> e.compareTo(cashOutLvL) < 0).count();
         long wins = lastXrounds.stream().filter(e -> e.compareTo(cashOutLvL) >= 0).count();
 
@@ -52,7 +58,7 @@ public class Utils {
         double output = wins * ((cashOutLvL.intValue() - 100) / 100.0) - losses;
 
         DecimalFormat df = new DecimalFormat("#.##");
-        BetOutputs betOutputs = new BetOutputs(
+        BetOutputMessages betOutputs = new BetOutputMessages(
                 "Last" + lastXrounds.size() + ": " + df.format(output) + "x",
                 " (W ratio " + df.format(winRatio) + "  W: " + wins + "/L:" + losses + ")");
         return betOutputs;
@@ -61,10 +67,10 @@ public class Utils {
     static void storeEnemyBankBalance(BigDecimal currentEnemyBalance, BigDecimal enemyBalanceChange) {
         //store the casino's bank balance change from this game
         Path filePath = Paths.get("outputs", "EnemyBalance"); // Create a Path object for the file
-        String leftAlignedBalance = String.format("  %-6s", currentEnemyBalance+ " SOL" );
+        String leftAlignedBalance = String.format("  %-6s", currentEnemyBalance + " SOL");
         String singedBalChange = (enemyBalanceChange.compareTo(BigDecimal.ZERO) >= 0 ? "+" : "") + enemyBalanceChange;
         String balanceMessage = leftAlignedBalance + "   (" + singedBalChange + " SOL)" + System.lineSeparator();
-        storeToFile(filePath, "===Time: " + getTime() + " ===");
+        storeToFile(filePath, getTime() + " ===");
         storeToFile(filePath, balanceMessage);
     }
 
@@ -122,7 +128,7 @@ public class Utils {
         long losses = res.stream().filter(e -> new BigDecimal(e).compareTo(cashOutLvL) < 0).count();
         long wins = res.stream().filter(e -> new BigDecimal(e).compareTo(cashOutLvL) >= 0).count();
 
-        System.out.println("Win ratio " + (double) wins / losses + "      W:" + wins + " / L:" + losses);
+        System.out.println("Win rate " + (double) wins / losses + "      W:" + wins + " / L:" + losses);
         System.out.println("Our output is " + (wins * ((cashOutLvL.intValue() - 100) / 100.0) - losses));
 
         return null;
