@@ -1,8 +1,12 @@
 package org.example;
 
-import org.openqa.selenium.By;
-import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
+import lombok.Getter;
+import lombok.Setter;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
+import org.openqa.selenium.*;
 import org.openqa.selenium.chrome.ChromeDriver;
 import io.github.bonigarcia.wdm.WebDriverManager;
 import org.openqa.selenium.chrome.ChromeOptions;
@@ -27,47 +31,35 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class CrawlHistoryPanel {
-    static WebDriver driver;
-    static ExecutorService executorService = Executors.newCachedThreadPool();
-
+/*icon-sending
+icon-handout
+icon-alarm*/
+public class CrashGameMonitor {
+    @Getter
+    private WebDriver driver;
+    @Getter
+    private DevTools devTools;
+    @Getter
+    private ExecutorService executorService = Executors.newCachedThreadPool();
+    private Bettooor bettooor = new Bettooor();
+    static final String gameUrl = "https://crashout.fun/en-us/solana";
     //tracks casino's balance changes since the program was running
+    @Getter
+    @Setter
     private BigDecimal currentEnemyBalance = BigDecimal.ZERO;
 
-    private Long latestRound = 0L;
+    private Long finishedRound = 0L;
+    private Long newStartingRound = 0L;
     private List<BigDecimal> crashLevelsSinceStart = new ArrayList<>();
 
-    public CrawlHistoryPanel() throws InterruptedException {
-        ChromeOptions options = new ChromeOptions();
-
-// 1. Remove the �enable-automation� flag
-        options.setExperimentalOption("excludeSwitches",
-                Arrays.asList("enable-automation"));
-
-// 2. Hide the �Chrome is being controlled by automated test software� infobar
-        options.setExperimentalOption("useAutomationExtension", false);
-
-// 3. Potentially override user agent
-        options.addArguments("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                + "AppleWebKit/537.36 (KHTML, like Gecko) "
-                + "Chrome/117.0.0.0 Safari/537.36");
-
-// 4. �AutomationControlled� � some older advice suggests you might remove it:
-        options.addArguments("--disable-blink-features=AutomationControlled");
-
-        //driver = new ChromeDriver();
-        driver = new ChromeDriver(options);
-
-        WebDriverManager.chromedriver().setup();
-        // Disable DevTools info logs
-        Logger.getLogger("org.openqa.selenium.devtools").setLevel(Level.SEVERE);
-
-        driver.get("https://crashout.fun/en-us/solana");
+    public CrashGameMonitor() throws InterruptedException {
+        initChromeDriver();
+        initDevTools();
 
         closeBanner(); //close initial banner
     }
 
-    public void startCrawling() {
+    public void startMonitoring() {
         addNewRoundListener();
     }
 
@@ -75,49 +67,13 @@ public class CrawlHistoryPanel {
      * Finds when a new round is about to start by checking the start game icon request
      */
     private void addNewRoundListener() {
-        // Cast driver to HasDevTools to access DevTools
-        DevTools devTools = ((HasDevTools) driver).getDevTools();
-        devTools.createSession();
-
-        // Enable Network events
-        devTools.send(Network.enable(
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty()
-        ));
-
-        // Add a listener for 'requestWillBeSent'
-        // Potentially inject script to redefine navigator.webdriver
-
-
-        devTools.send(
-                Runtime.evaluate(
-                        "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})",
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty()
-                )
-        );
-
         devTools.addListener(Network.requestWillBeSent(),
                 requestWillBeSent -> {
                     Request request = requestWillBeSent.getRequest();
                     String url = request.getUrl();
 
-                    // Check if its the icon-sending request (signifying the end of game round)
-                    if (url.contains("icon-sending")) {
+                    // Check if its the icon-handout request (signifying the end of game round)
+                    if (url.contains("icon-handout")) {
                         storeEnemyBankBalanceChange();
                         calculateOutputWinningRatios();
                     }
@@ -126,18 +82,18 @@ public class CrawlHistoryPanel {
     }
 
     private void storeEnemyBankBalanceChange() {
-        //Locate all row elements under recordmain:
-        List<WebElement> rowElements = driver.findElements(
-                By.cssSelector("div.recordmain div.item")
-        );
+        WebElement playerPanelElement = driver.findElement(By.cssSelector("div.recordmain"));
+        String playerPanelHtml = playerPanelElement.getAttribute("innerHTML");
+
+        Document document = Jsoup.parse(playerPanelHtml);
+        Elements rowElements = document.select("div.item");
 
         List<PlayerRoundStats> records = new ArrayList<>();
-
         // For each row select .r2, .r3, .r4
-        for (WebElement row : rowElements) {
-            String betAmount = row.findElement(By.cssSelector(".r2")).getText();
-            String totalOutput = row.findElement(By.cssSelector(".r3")).getText();
-            String cashoutLevel = row.findElement(By.cssSelector(".r4")).getText();
+        for (Element row : rowElements) {
+            String betAmount = row.select(".r2").text();
+            String totalOutput = row.select(".r3").text();
+            String cashoutLevel = row.select(".r4").text();
 
             // Create record object
             PlayerRoundStats record = new PlayerRoundStats(betAmount, totalOutput, cashoutLevel);
@@ -145,28 +101,28 @@ public class CrawlHistoryPanel {
         }
         BigDecimal enemyBankBalanceChange = records.stream().map(rec -> new BigDecimal(rec.betAmount()).subtract(new BigDecimal(rec.totalOutput()))).reduce(BigDecimal.ZERO, BigDecimal::add);
         currentEnemyBalance = currentEnemyBalance.add(enemyBankBalanceChange);
-        Utils.storeEnemyBankBalance(currentEnemyBalance, enemyBankBalanceChange);
+        DataUtils.storeEnemyBankBalance(currentEnemyBalance, enemyBankBalanceChange);
     }
 
     private void calculateOutputWinningRatios() {
         try {
             Optional<CrashLevels> crashLevelsOpt = crawlHistory();
-            Utils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("158"));
-            Utils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("200"));
-            Utils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("300"));
-            Utils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("400"));
-            Utils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("500"));
-            Utils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("600"));
-            Utils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("700"));
-            Utils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("800"));
-            Utils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("900"));
-            Utils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("1000"));
-            Utils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("1200"));
-            Utils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("1400"));
-            Utils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("1700"));
-            Utils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("2000"));
-            Utils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("2500"));
-            Utils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("3000"));
+            DataUtils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("158"));
+            DataUtils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("200"));
+            DataUtils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("300"));
+            DataUtils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("400"));
+            DataUtils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("500"));
+            DataUtils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("600"));
+            DataUtils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("700"));
+            DataUtils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("800"));
+            DataUtils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("900"));
+            DataUtils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("1000"));
+            DataUtils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("1200"));
+            DataUtils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("1400"));
+            DataUtils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("1700"));
+            DataUtils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("2000"));
+            DataUtils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("2500"));
+            DataUtils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("3000"));
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
@@ -179,28 +135,32 @@ public class CrawlHistoryPanel {
             openHistoryPanel();
         } catch (Exception e) {
             WebElement maskElement = driver.findElement(By.cssSelector("div.mask.fade-enter-from.fade-leave-from.fade-leave-active"));
-            // Retrieve the complete HTML (including the element itself)
+            // If the interfering mask still appears, retrieve the complete HTML (including the element itself) to study it
             String fullHtml = maskElement.getAttribute("outerHTML");
-            Utils.storeBetOutputData(BigDecimal.ONE, fullHtml);
+            DataUtils.storeBetOutputData(BigDecimal.ONE, fullHtml);
             System.exit(4);
         }
         try {
             awaitUntilCrashValuesExist();
         } catch (Exception e) {
-            closeHistoryPanel(); //sometimes history Panel is loaded empty so catch the exception and close the history again.
+            closeHistoryPanelAsync(); //sometimes history Panel is loaded empty so catch the exception and close the history again.
             System.err.println("Loaded empty history panel, closing again");
             return Optional.empty(); //empty
         }
         crashLevels = collectCrashValues();
-        closeHistoryPanel();
-
+        closeHistoryPanelAsync();
+        conditionalBetAsync(newStartingRound);
         return Optional.of(crashLevels);
+    }
+
+    private void conditionalBetAsync(long newStartingRound) {
+        executorService.execute(() -> bettooor.doConditionalBet(newStartingRound));
     }
 
     /**
      * close history panel asynchronously after collecting data with a random delay to make it seem more "humanlike"
      */
-    private void closeHistoryPanel() {
+    private void closeHistoryPanelAsync() {
         executorService.execute(() ->
         {
             try {
@@ -213,21 +173,6 @@ public class CrawlHistoryPanel {
         });
     }
 
-//    private List<BigDecimal> collectCrashValues() {
-//        List<BigDecimal> crashData = new ArrayList<>();
-//        List<WebElement> crashElements = driver.findElements(By.cssSelector(".r_item .td:nth-child(4)")); //get the crash values from rows
-//        for (int i = 0; i < crashElements.size(); i++) {
-//            String crashVal = crashElements.get(i).getText();
-//            if (crashVal.toLowerCase().contains("progress")) {
-//                continue; // Sometimes IN PROGRESS game is already loaded so skip it from parsing
-//            }
-//
-//            crashData.add(new BigDecimal(crashVal.replace("%", "")));
-//        }
-//        return crashData;
-//    }
-
-
     private CrashLevels collectCrashValues() {
         List<BigDecimal> last100CrashLevels = new ArrayList<>();
         List<WebElement> rows = driver.findElements(By.cssSelector(".r_item"));
@@ -236,19 +181,20 @@ public class CrawlHistoryPanel {
             String crashValueStr = cells.get(3).getText().replace("%", "");
             String roundStr = cells.get(4).getText();
             if (crashValueStr.toLowerCase().contains("progress")) {
-                continue; // Sometimes IN PROGRESS game is already loaded so skip it from parsing
+                newStartingRound = Long.parseLong(roundStr);
+                continue; // IN PROGRESS is the newly starting round, no crashData to process yet
             }
             BigDecimal crashValue = new BigDecimal(crashValueStr);
             Long round = Long.parseLong(roundStr);
-            setLatestRound(round, crashValue);
+            addFinishedRoundCrashData(round, crashValue);
             last100CrashLevels.add(crashValue);
         }
         return new CrashLevels(last100CrashLevels, crashLevelsSinceStart);
     }
 
-    private void setLatestRound(Long round, BigDecimal crashValue) {
-        if (round > latestRound) {
-            latestRound = round;
+    private void addFinishedRoundCrashData(Long round, BigDecimal crashValue) {
+        if (round > finishedRound) { //from the history panel of rounds, add only the latest finished round to the crashLevels since start list
+            finishedRound = round;
             crashLevelsSinceStart.add(crashValue);
         }
     }
@@ -275,15 +221,23 @@ public class CrawlHistoryPanel {
 
         //If found, wait for it to go away
         if (!fadeMasks.isEmpty()) {
-            //wait.until(ExpectedConditions.invisibilityOfElementLocated(By.cssSelector("div.mask")));
-            wait.until(ExpectedConditions.invisibilityOfElementLocated(
-                    By.cssSelector("div.mask.fade-enter-from, div.mask.fade-leave-from, div.mask.fade-leave-active")
-            ));
+            try {
+                wait.until(ExpectedConditions.invisibilityOfElementLocated(
+                        By.cssSelector("div.mask.fade-enter-from, div.mask.fade-leave-from, div.mask.fade-leave-active")
+                ));
+            } catch (TimeoutException e) {
+                // If it never disappeared within 5 seconds, remove/hide it via JavaScript
+                JavascriptExecutor js = (JavascriptExecutor) driver;
+                for (WebElement mask : fadeMasks) {
+                    js.executeScript("arguments[0].style.display='none';", mask);
+                    // Remove it from the DOM altogether
+                    // js.executeScript("arguments[0].remove();", mask);
+                }
+            }
         }
     }
 
     private void awaitUntilCrashValuesExist() {
-        //Thread.sleep(getRandom(2,5)*1000);
         WebDriverWait crashValuesWait = new WebDriverWait(driver, Duration.ofSeconds(10));
         crashValuesWait.until(new ExpectedCondition<Boolean>() {
             public Boolean apply(WebDriver webDriver) {
@@ -322,22 +276,58 @@ public class CrawlHistoryPanel {
         return ThreadLocalRandom.current().nextInt(from, to + 1);
     }
 
-    public BigDecimal getCurrentEnemyBalance() {
-        return currentEnemyBalance;
+
+    private void initDevTools() {
+        // Cast driver to HasDevTools to access DevTools
+        devTools = ((HasDevTools) driver).getDevTools();
+        devTools.createSession();
+
+        // Enable Network events
+        devTools.send(Network.enable(
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty()
+        ));
+
+        // Add a listener for 'requestWillBeSent'
+        // Inject script to redefine navigator.webdriver and obfuscate this is an automation robot
+        devTools.send(
+                Runtime.evaluate(
+                        "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})",
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()
+                )
+        );
     }
 
-    public void setCurrentEnemyBalance(BigDecimal currentEnemyBalance) {
-        this.currentEnemyBalance = currentEnemyBalance;
+    private void initChromeDriver() {
+        ChromeOptions options = new ChromeOptions();
+        options.setExperimentalOption("excludeSwitches",
+                Arrays.asList("enable-automation"));
+        options.setExperimentalOption("useAutomationExtension", false);
+        options.addArguments("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                + "AppleWebKit/537.36 (KHTML, like Gecko) "
+                + "Chrome/117.0.0.0 Safari/537.36");
+        options.addArguments("--disable-blink-features=AutomationControlled");
+
+        driver = new ChromeDriver(options);
+        WebDriverManager.chromedriver().setup();
+        // Disable DevTools info logs
+        Logger.getLogger("org.openqa.selenium.devtools").setLevel(Level.SEVERE);
+        driver.get(gameUrl);
     }
-
-    //class="mask fade-enter-from fade-leave-from fade-leave-active">
-
-    // Locate the panel and extract the content
-    //By historyBoardLocatedBy = By.cssSelector(".mask .main.pc");
-    //WebDriverWait waitHistoryPage = new WebDriverWait(driver, Duration.ofMillis(1000)); // 1000-ms timeout
-    //WebElement mainPcElement = waitHistoryPage.until(ExpectedConditions.presenceOfElementLocated(historyBoardLocatedBy));
-    // Get the full HTML of the element
-    //String elementHTML = mainPcElement.getAttribute("outerHTML");
-    //String rawData = mainPcElement.getText();
 }
 

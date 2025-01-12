@@ -20,7 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-public class Utils {
+public class DataUtils {
 
 
     static void storeBettingOutputs(Optional<CrashLevels> crashLevels, BigDecimal cashOutLvL) {
@@ -53,9 +53,9 @@ public class Utils {
         long losses = lastXrounds.stream().filter(e -> e.compareTo(cashOutLvL) < 0).count();
         long wins = lastXrounds.stream().filter(e -> e.compareTo(cashOutLvL) >= 0).count();
 
-
         double winRatio = (double) wins / losses;
-        double output = wins * ((cashOutLvL.intValue() - 100) / 100.0) - losses;
+        double feesTotal = lastXrounds.size() * 0.03;
+        double output = wins * ((cashOutLvL.intValue() - 100) / 100.0) - losses - feesTotal;
 
         DecimalFormat df = new DecimalFormat("#.##");
         BetOutputMessages betOutputs = new BetOutputMessages(
