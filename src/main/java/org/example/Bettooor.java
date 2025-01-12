@@ -19,7 +19,7 @@ public class Bettooor {
             if (solBalance < 0.2) { //claim balance from winnings so we can keep betting
                 claimExistingBalance();
             }
-            doBet(newStartingRound); //TODO: INSERT YOUR CONDITIONAL STRATEGY ON WHEN TO BET, BEST ON THE STATS THE PROGRAM IS COLLECTING
+            doBet(newStartingRound,0.01); //TODO: INSERT YOUR CONDITIONAL STRATEGY ON WHEN TO BET, BEST ON THE STATS THE PROGRAM IS COLLECTING
         } catch (RpcException | DecoderException e) {
             throw new RuntimeException(e);
         }
@@ -31,8 +31,8 @@ public class Bettooor {
         System.out.println("Claim transaction signature: " + signature);
     }
 
-    private void doBet(long newStartingRound) throws DecoderException, RpcException {
-        Transaction claimTransaction = CrashGameInstructionBuilder.buildBetTransaction(newStartingRound);
+    private void doBet(long newStartingRound,double solBet) throws DecoderException, RpcException {
+        Transaction claimTransaction = CrashGameInstructionBuilder.buildBetTransaction(newStartingRound,solBet);
         String signature = AppConstants.getClient().getApi().sendTransaction(claimTransaction, fromAccount);
         System.out.println("Bet transaction signature: " + signature);
     }

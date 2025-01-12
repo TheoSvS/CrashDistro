@@ -5,8 +5,7 @@ import org.p2p.solanaj.rpc.RpcException;
 
 import java.math.BigDecimal;
 
-import static org.example.AppConstants.ROUND_PART;
-import static org.example.AppConstants.SOL_LAMPORTS;
+import static org.example.AppConstants.*;
 
 public class CryptoUtils {
 
@@ -45,10 +44,9 @@ public class CryptoUtils {
                 result[0], result[1], result[2], result[3]);
     }
 
-    public static String substituteRoundPart(String instructionData, String round) {
-        return instructionData.replace(ROUND_PART, round);
+    public static String substituteInstructionParts(String hexInstructionData, String round, String totalBetCost) {
+        return hexInstructionData.replace(GAME_ROUND, round).replace(BET_COST_LAMPORTS,totalBetCost);
     }
-
 
 
     //0.05 bet  1.58 cashout

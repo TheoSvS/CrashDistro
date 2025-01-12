@@ -10,10 +10,12 @@ import static org.example.AppConstants.*;
 
 public class CrashGameInstructionBuilder {
 
-    public static Transaction buildBetTransaction(long gameRound) throws DecoderException {
+    public static Transaction buildBetTransaction(long gameRound, double solBet) throws DecoderException {
         Transaction transaction = new Transaction();
         PublicKey crashProgramPublicKey = new PublicKey(CRASH_PROGRAM_ID);
-        String instructionData = CryptoUtils.substituteRoundPart(BET_0_05_CASHOUT158, CryptoUtils.longToHEXUint32LE(gameRound));
+        long totalBetLamports = CryptoUtils.solToLamports(solBet * BET_FEE_PCT);
+
+        String instructionData = CryptoUtils.substituteInstructionParts(BET_CASHOUT158, CryptoUtils.longToHEXUint32LE(gameRound), CryptoUtils.longToHEXUint32LE(totalBetLamports));
         byte[] instructionDataBytes = Hex.decodeHex(instructionData);
         TransactionInstruction transactionInstruction = new TransactionInstruction(crashProgramPublicKey, AppConstants.getBetCmdInputAccounts(), instructionDataBytes);
         transaction.addInstruction(transactionInstruction);

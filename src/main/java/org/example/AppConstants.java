@@ -28,9 +28,11 @@ public class AppConstants {
     private static String secret;
     @Getter
     private static Account fromAccount;
-    public static final String ROUND_PART = "ROUND_PART";
-    public static final String BET_0_05_CASHOUT158 = "ce37026a71dc11a301006500" + ROUND_PART + "00000000e0d3110300000000013000000065794a316332567958326c6b496a6f694d6a41344e6a41334f44497949697769595730694f6949784c6a5534496e303d";
-
+    public static final String GAME_ROUND = "GAME_ROUND";
+    public static final String BET_COST_LAMPORTS = "BET_COST_LAMPORTS";
+    public static final String BET_CASHOUT158 = "ce37026a71dc11a301006500" + GAME_ROUND + "00000000" + BET_COST_LAMPORTS + "00000000013000000065794a316332567958326c6b496a6f694d6a41344e6a41334f44497949697769595730694f6949784c6a5534496e303d";
+    public static final String BET_CASHOUT400 = "ce37026a71dc11a301006500" + GAME_ROUND + "00000000" + BET_COST_LAMPORTS + "00000000013000000065794a316332567958326c6b496a6f694d6a41344e6a41334f44497949697769595730694f6949304c6a4177496e303d";
+    public static final double BET_FEE_PCT = 1.03;
     public static final String CLAIM_FUNDS = "3ec6d6c1d59f6cd20100";
     public static final String CRASH_PROGRAM_ID = "CRSHdMVmWgRsarrRWnRXWKMxJhLEUheiU6SEhqCLS4Gm";
     public static final BigDecimal SOL_LAMPORTS = new BigDecimal(1_000_000_000);
