@@ -14,8 +14,9 @@ public class CrashGameInstructionBuilder {
         Transaction transaction = new Transaction();
         PublicKey crashProgramPublicKey = new PublicKey(CRASH_PROGRAM_ID);
         long totalBetLamports = CryptoUtils.solToLamports(solBet * BET_FEE_PCT);
+        String hexInstructionData = AppConstants.getCashoutLvlToInstructionMap().get(AppConstants.getECashoutLvl());
 
-        String instructionData = CryptoUtils.substituteInstructionParts(BET_CASHOUT158, CryptoUtils.longToHEXUint32LE(gameRound), CryptoUtils.longToHEXUint32LE(totalBetLamports));
+        String instructionData = CryptoUtils.substituteInstructionParts(hexInstructionData, CryptoUtils.longToHEXUint32LE(gameRound), CryptoUtils.longToHEXUint32LE(totalBetLamports));
         byte[] instructionDataBytes = Hex.decodeHex(instructionData);
         TransactionInstruction transactionInstruction = new TransactionInstruction(crashProgramPublicKey, AppConstants.getBetCmdInputAccounts(), instructionDataBytes);
         transaction.addInstruction(transactionInstruction);

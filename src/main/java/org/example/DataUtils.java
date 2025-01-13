@@ -30,23 +30,19 @@ public class DataUtils {
 
         List<BigDecimal> crashLevelsSinceStart = crashLevels.get().crashLevelsSinceStart();
         List<BigDecimal> last100 = crashLevels.get().last100CrashLevels();
-        List<BigDecimal> last30 = last100.subList(0, 30);
+        List<BigDecimal> last12 = last100.subList(0, 12);
 
         BetOutputMessages crashLevelsSinceStartOutputs = calculateWinningOutputs(crashLevelsSinceStart, cashOutLvL);
         BetOutputMessages last10Outputs = calculateWinningOutputs(last100, cashOutLvL);
-        BetOutputMessages last3Outputs = calculateWinningOutputs(last30, cashOutLvL);
+        BetOutputMessages last3Outputs = calculateWinningOutputs(last12, cashOutLvL);
 
 
         String printableCrashLevelsSinceStart = String.format("%-37s", crashLevelsSinceStartOutputs.output() + crashLevelsSinceStartOutputs.winRatio());
         String printable100 = String.format("%-43s", last10Outputs.output() + last10Outputs.winRatio());
         String printable30 = last3Outputs.output() + " " + last3Outputs.winRatio();
 
-        System.out.print(getTime() + " ===");
-        System.out.println(printableCrashLevelsSinceStart + "   " + printable100 + "   " + printable30);
-
-
-        storeBetOutputData(cashOutLvL, getTime() + " ===");
-        storeBetOutputData(cashOutLvL, printableCrashLevelsSinceStart + "   " + printable100 + "   " + printable30 + System.lineSeparator());
+        storeBetOutputsToFile(cashOutLvL, getTime() + " ===");
+        storeBetOutputsToFile(cashOutLvL, printableCrashLevelsSinceStart + "   " + printable100 + "   " + printable30 + System.lineSeparator());
     }
 
     private static BetOutputMessages calculateWinningOutputs(List<BigDecimal> lastXrounds, BigDecimal cashOutLvL) {
@@ -75,7 +71,7 @@ public class DataUtils {
     }
 
 
-    static void storeBetOutputData(BigDecimal cashOutLvL, String textToAppend) {
+    static void storeBetOutputsToFile(BigDecimal cashOutLvL, String textToAppend) {
         Path filePath = Paths.get("outputs", cashOutLvL.intValue() + "historicalCrashes"); // Create a Path object for the file
         storeToFile(filePath, textToAppend);
     }
@@ -95,7 +91,7 @@ public class DataUtils {
         }
     }
 
-    private static String getTime() {
+    public static String getTime() {
         LocalDateTime now = LocalDateTime.now();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
 

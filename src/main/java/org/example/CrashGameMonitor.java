@@ -7,6 +7,7 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.openqa.selenium.*;
+import org.openqa.selenium.TimeoutException;
 import org.openqa.selenium.chrome.ChromeDriver;
 import io.github.bonigarcia.wdm.WebDriverManager;
 import org.openqa.selenium.chrome.ChromeOptions;
@@ -25,9 +26,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -40,7 +39,7 @@ public class CrashGameMonitor {
     @Getter
     private DevTools devTools;
     @Getter
-    private ExecutorService executorService = Executors.newCachedThreadPool();
+    private ScheduledExecutorService executorService = Executors.newScheduledThreadPool(2);
     private Bettooor bettooor = new Bettooor();
     static final String gameUrl = "https://crashout.fun/en-us/solana";
     //tracks casino's balance changes since the program was running
@@ -137,7 +136,7 @@ public class CrashGameMonitor {
             WebElement maskElement = driver.findElement(By.cssSelector("div.mask.fade-enter-from.fade-leave-from.fade-leave-active"));
             // If the interfering mask still appears, retrieve the complete HTML (including the element itself) to study it
             String fullHtml = maskElement.getAttribute("outerHTML");
-            DataUtils.storeBetOutputData(BigDecimal.ONE, fullHtml);
+            DataUtils.storeBetOutputsToFile(BigDecimal.ONE, fullHtml);
             System.exit(4);
         }
         try {
@@ -154,7 +153,8 @@ public class CrashGameMonitor {
     }
 
     private void conditionalBetAsync(long newStartingRound) {
-        executorService.execute(() -> bettooor.doConditionalBet(newStartingRound));
+        //scheduled executor. Give me a few seconds to think if I want to change the bettingEnabled property for the following rounds..
+        executorService.schedule(() -> bettooor.doConditionalBet(newStartingRound), 11, TimeUnit.SECONDS);
     }
 
     /**
