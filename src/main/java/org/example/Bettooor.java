@@ -20,11 +20,11 @@ public class Bettooor {
         }
         try {
             double solBalance = CryptoUtils.getSolanaBalance(fromAccount.getPublicKey());
-            if (solBalance < 0.2) { //claim balance from winnings so we can keep betting
+            if (solBalance < 0.1) { //claim balance from winnings so we can keep betting
                 claimExistingBalance();
             }
 
-            doBet(newStartingRound,0.05); //TODO: INSERT YOUR CONDITIONAL STRATEGY ON WHEN TO BET, BEST ON THE STATS THE PROGRAM IS COLLECTING
+            doBet(newStartingRound,0.01); //TODO: INSERT YOUR CONDITIONAL STRATEGY ON WHEN TO BET, BEST ON THE STATS THE PROGRAM IS COLLECTING
         } catch (RpcException | DecoderException e) {
             throw new RuntimeException(e);
         }

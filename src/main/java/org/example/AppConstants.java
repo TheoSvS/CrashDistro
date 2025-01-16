@@ -19,6 +19,7 @@ import java.util.Properties;
 
 public class AppConstants {
     private static final Properties props = new Properties();
+    public static final String PROPERTIES_FILE = "solcrash.properties";
 
     static {
         liveReadProperties();
@@ -160,7 +161,7 @@ public class AppConstants {
     }
 
     private static void reload() {
-        try (BufferedReader reader = Files.newBufferedReader(Path.of("crashgame.properties"))) {
+        try (BufferedReader reader = Files.newBufferedReader(Path.of(PROPERTIES_FILE))) {
             props.clear();
             props.load(reader);
         } catch (IOException e) {

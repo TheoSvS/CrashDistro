@@ -21,6 +21,8 @@ import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
 import java.math.BigDecimal;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -30,9 +32,8 @@ import java.util.concurrent.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-/*icon-sending
-icon-handout
-icon-alarm*/
+import static org.example.DataUtils.getTime;
+
 public class CrashGameMonitor {
     @Getter
     private WebDriver driver;
@@ -50,6 +51,7 @@ public class CrashGameMonitor {
     private Long finishedRound = 0L;
     private Long newStartingRound = 0L;
     private List<BigDecimal> crashLevelsSinceStart = new ArrayList<>();
+    private int finishedRoundPlayers;
 
     public CrashGameMonitor() throws InterruptedException {
         initChromeDriver();
@@ -70,22 +72,25 @@ public class CrashGameMonitor {
                 requestWillBeSent -> {
                     Request request = requestWillBeSent.getRequest();
                     String url = request.getUrl();
-
-                    // Check if its the icon-handout request (signifying the end of game round)
-                    if (url.contains("icon-handout")) {
-                        storeEnemyBankBalanceChange();
-                        calculateOutputWinningRatios();
+                    // Check if its the icon-sending request (just the moment the round ends)
+                    if (url.contains("icon-sending")) {
+                        storeEnemyBankBalanceChangeFromLastRound();
+                    } else if (url.contains("icon-handout")) { //as the round counter has incremented to new round
+                        Optional<CrashData> crashDataOpt = crawlHistory();
+                        conditionalBetAsync(newStartingRound);
+                        storeRoundOutputs(crashDataOpt);
                     }
                 }
         );
     }
 
-    private void storeEnemyBankBalanceChange() {
+    private void storeEnemyBankBalanceChangeFromLastRound() {
         WebElement playerPanelElement = driver.findElement(By.cssSelector("div.recordmain"));
         String playerPanelHtml = playerPanelElement.getAttribute("innerHTML");
 
         Document document = Jsoup.parse(playerPanelHtml);
         Elements rowElements = document.select("div.item");
+        finishedRoundPlayers = rowElements.size();
 
         List<PlayerRoundStats> records = new ArrayList<>();
         // For each row select .r2, .r3, .r4
@@ -103,33 +108,35 @@ public class CrashGameMonitor {
         DataUtils.storeEnemyBankBalance(currentEnemyBalance, enemyBankBalanceChange);
     }
 
-    private void calculateOutputWinningRatios() {
-        try {
-            Optional<CrashLevels> crashLevelsOpt = crawlHistory();
-            DataUtils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("158"));
-            DataUtils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("200"));
-            DataUtils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("300"));
-            DataUtils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("400"));
-            DataUtils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("500"));
-            DataUtils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("600"));
-            DataUtils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("700"));
-            DataUtils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("800"));
-            DataUtils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("900"));
-            DataUtils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("1000"));
-            DataUtils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("1200"));
-            DataUtils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("1400"));
-            DataUtils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("1700"));
-            DataUtils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("2000"));
-            DataUtils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("2500"));
-            DataUtils.storeBettingOutputs(crashLevelsOpt, new BigDecimal("3000"));
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+    private void storeRoundOutputs(Optional<CrashData> crashDataOpt) {
+        if (crashDataOpt.isEmpty()) {
+            return;
         }
+        CrashData crashData = crashDataOpt.get();
+        DataUtils.storeToFile(Paths.get("outputs", "CrashHistory"),
+                getTime() + " === " + crashData.crashLevelsSinceStart().getLast().intValue() + System.lineSeparator()); // Create a Path object for the file
+        DataUtils.storeBettingOutputs(crashData, new BigDecimal("158"));
+        DataUtils.storeBettingOutputs(crashData, new BigDecimal("200"));
+        DataUtils.storeBettingOutputs(crashData, new BigDecimal("300"));
+        DataUtils.storeBettingOutputs(crashData, new BigDecimal("400"));
+        DataUtils.storeBettingOutputs(crashData, new BigDecimal("500"));
+        DataUtils.storeBettingOutputs(crashData, new BigDecimal("600"));
+        DataUtils.storeBettingOutputs(crashData, new BigDecimal("700"));
+        DataUtils.storeBettingOutputs(crashData, new BigDecimal("800"));
+        DataUtils.storeBettingOutputs(crashData, new BigDecimal("900"));
+        DataUtils.storeBettingOutputs(crashData, new BigDecimal("1000"));
+        DataUtils.storeBettingOutputs(crashData, new BigDecimal("1200"));
+        DataUtils.storeBettingOutputs(crashData, new BigDecimal("1400"));
+        DataUtils.storeBettingOutputs(crashData, new BigDecimal("1700"));
+        DataUtils.storeBettingOutputs(crashData, new BigDecimal("2000"));
+        DataUtils.storeBettingOutputs(crashData, new BigDecimal("2500"));
+        DataUtils.storeBettingOutputs(crashData, new BigDecimal("3000"));
+        DataUtils.storeBettingOutputs(crashData, new BigDecimal("3000"));
     }
 
 
-    public Optional<CrashLevels> crawlHistory() throws InterruptedException {
-        CrashLevels crashLevels;
+    public Optional<CrashData> crawlHistory() {
+        CrashData crashData;
         try {
             openHistoryPanel();
         } catch (Exception e) {
@@ -146,15 +153,14 @@ public class CrashGameMonitor {
             System.err.println("Loaded empty history panel, closing again");
             return Optional.empty(); //empty
         }
-        crashLevels = collectCrashValues();
+        crashData = collectCrashValues();
         closeHistoryPanelAsync();
-        conditionalBetAsync(newStartingRound);
-        return Optional.of(crashLevels);
+        return Optional.of(crashData);
     }
 
     private void conditionalBetAsync(long newStartingRound) {
         //scheduled executor. Give me a few seconds to think if I want to change the bettingEnabled property for the following rounds..
-        executorService.schedule(() -> bettooor.doConditionalBet(newStartingRound), 11, TimeUnit.SECONDS);
+        executorService.schedule(() -> bettooor.doConditionalBet(newStartingRound), 13, TimeUnit.SECONDS);
     }
 
     /**
@@ -173,7 +179,7 @@ public class CrashGameMonitor {
         });
     }
 
-    private CrashLevels collectCrashValues() {
+    private CrashData collectCrashValues() {
         List<BigDecimal> last100CrashLevels = new ArrayList<>();
         List<WebElement> rows = driver.findElements(By.cssSelector(".r_item"));
         for (WebElement row : rows) {
@@ -186,17 +192,18 @@ public class CrashGameMonitor {
             }
             BigDecimal crashValue = new BigDecimal(crashValueStr);
             Long round = Long.parseLong(roundStr);
-            addFinishedRoundCrashData(round, crashValue);
+            if (round > finishedRound) { //from the history panel of rounds, add only the latest finished round to the crashLevels since start list
+                addFinishedRoundCrashData(round, crashValue);
+            }
             last100CrashLevels.add(crashValue);
         }
-        return new CrashLevels(last100CrashLevels, crashLevelsSinceStart);
+        return new CrashData(last100CrashLevels, crashLevelsSinceStart, finishedRoundPlayers);
     }
 
+    //from the history panel of rounds, add only the latest finished round to the crashLevels since start list
     private void addFinishedRoundCrashData(Long round, BigDecimal crashValue) {
-        if (round > finishedRound) { //from the history panel of rounds, add only the latest finished round to the crashLevels since start list
-            finishedRound = round;
-            crashLevelsSinceStart.add(crashValue);
-        }
+        finishedRound = round;
+        crashLevelsSinceStart.add(crashValue);
     }
 
     //String latestRndStr = crashElements.get(i).getText();
@@ -226,6 +233,7 @@ public class CrashGameMonitor {
                         By.cssSelector("div.mask.fade-enter-from, div.mask.fade-leave-from, div.mask.fade-leave-active")
                 ));
             } catch (TimeoutException e) {
+                System.err.println("You little pest..");
                 // If it never disappeared within 5 seconds, remove/hide it via JavaScript
                 JavascriptExecutor js = (JavascriptExecutor) driver;
                 for (WebElement mask : fadeMasks) {
