@@ -1,4 +1,4 @@
-package org.example;
+package solcrash;
 
 public class Main {
     public static void main(String[] args) throws InterruptedException {

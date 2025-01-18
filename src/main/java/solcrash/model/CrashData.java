@@ -1,4 +1,4 @@
-package org.example;
+package solcrash.model;
 
 import java.math.BigDecimal;
 import java.util.List;

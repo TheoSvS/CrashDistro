@@ -1,7 +1,8 @@
-package org.example;
+package solcrash;
 
 import lombok.Getter;
 import lombok.Setter;
+import solcrash.model.CrashData;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -19,9 +20,9 @@ import org.openqa.selenium.devtools.v131.runtime.Runtime;
 import org.openqa.selenium.support.ui.ExpectedCondition;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
+import solcrash.model.PlayerRoundStats;
 
 import java.math.BigDecimal;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -31,8 +32,6 @@ import java.util.Optional;
 import java.util.concurrent.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import static org.example.DataUtils.getTime;
 
 public class CrashGameMonitor {
     @Getter
@@ -114,7 +113,7 @@ public class CrashGameMonitor {
         }
         CrashData crashData = crashDataOpt.get();
         DataUtils.storeToFile(Paths.get("outputs", "CrashHistory"),
-                getTime() + " === " + crashData.crashLevelsSinceStart().getLast().intValue() + System.lineSeparator()); // Create a Path object for the file
+                DataUtils.getTime() + " === " + crashData.crashLevelsSinceStart().getLast().intValue() + System.lineSeparator()); // Create a Path object for the file
         DataUtils.storeBettingOutputs(crashData, new BigDecimal("158"));
         DataUtils.storeBettingOutputs(crashData, new BigDecimal("200"));
         DataUtils.storeBettingOutputs(crashData, new BigDecimal("300"));

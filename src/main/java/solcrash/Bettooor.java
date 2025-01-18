@@ -1,4 +1,4 @@
-package org.example;
+package solcrash;
 
 import org.apache.commons.codec.DecoderException;
 import org.p2p.solanaj.core.Account;
@@ -7,13 +7,16 @@ import org.p2p.solanaj.rpc.RpcException;
 
 public class Bettooor {
     Account fromAccount;
+    DecisionMaker decisionMaker;
 
     public Bettooor() {
         fromAccount = AppConstants.getFromAccount();
+        decisionMaker = new DecisionMakerImpl();
     }
 
-    //TODO: INSERT YOUR CONDITIONAL STRATEGY ON WHEN TO BET, BEST ON THE STATS THE PROGRAM IS COLLECTING
+    //TODO: INSERT YOUR CONDITIONAL STRATEGY ON WHEN TO BET, BASED ON THE STATS THE PROGRAM IS COLLECTING
     public void doConditionalBet(long newStartingRound) {
+        DataUtils.getWinOutputsAtLastXGames();
         AppConstants.liveReadProperties();
         if (!AppConstants.isBettingEnabled()) {
             return;
@@ -23,8 +26,9 @@ public class Bettooor {
             if (solBalance < 0.1) { //claim balance from winnings so we can keep betting
                 claimExistingBalance();
             }
-
-            doBet(newStartingRound,0.01); //TODO: INSERT YOUR CONDITIONAL STRATEGY ON WHEN TO BET, BEST ON THE STATS THE PROGRAM IS COLLECTING
+            if(decisionMaker.shouldBet()) {
+                doBet(newStartingRound, 0.01); //TODO: INSERT YOUR CONDITIONAL STRATEGY ON WHEN TO BET, BASED ON THE STATS THE PROGRAM IS COLLECTING
+            }
         } catch (RpcException | DecoderException e) {
             throw new RuntimeException(e);
         }

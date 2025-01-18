@@ -1,4 +1,4 @@
-package org.example;
+package solcrash;
 
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
@@ -6,7 +6,7 @@ import org.p2p.solanaj.core.PublicKey;
 import org.p2p.solanaj.core.Transaction;
 import org.p2p.solanaj.core.TransactionInstruction;
 
-import static org.example.AppConstants.*;
+import static solcrash.AppConstants.*;
 
 public class CrashGameInstructionBuilder {
 

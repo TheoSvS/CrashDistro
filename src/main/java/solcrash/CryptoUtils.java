@@ -1,11 +1,11 @@
-package org.example;
+package solcrash;
 
 import org.p2p.solanaj.core.PublicKey;
 import org.p2p.solanaj.rpc.RpcException;
 
 import java.math.BigDecimal;
 
-import static org.example.AppConstants.*;
+import static solcrash.AppConstants.*;
 
 public class CryptoUtils {
 

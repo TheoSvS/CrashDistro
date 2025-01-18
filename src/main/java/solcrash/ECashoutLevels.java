@@ -1,8 +1,6 @@
-package org.example;
+package solcrash;
 
 import lombok.Getter;
-
-import java.util.Arrays;
 
 public enum ECashoutLevels {
     PERCNT_158(158),
