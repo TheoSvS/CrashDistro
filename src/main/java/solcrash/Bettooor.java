@@ -5,6 +5,9 @@ import org.p2p.solanaj.core.Account;
 import org.p2p.solanaj.core.Transaction;
 import org.p2p.solanaj.rpc.RpcException;
 
+import java.math.BigDecimal;
+import java.util.List;
+
 public class Bettooor {
     Account fromAccount;
     DecisionMaker decisionMaker;
@@ -15,21 +18,16 @@ public class Bettooor {
     }
 
     //TODO: INSERT YOUR CONDITIONAL STRATEGY ON WHEN TO BET, BASED ON THE STATS THE PROGRAM IS COLLECTING
-    public void doConditionalBet(long newStartingRound) {
-        DataUtils.getWinOutputsAtLastXGames();
-        AppConstants.liveReadProperties();
-        if (!AppConstants.isBettingEnabled()) {
-            return;
-        }
+    public void doConditionalBet(long newStartingRound, List<BigDecimal> crashLevelsSinceStart) {
         try {
             double solBalance = CryptoUtils.getSolanaBalance(fromAccount.getPublicKey());
             if (solBalance < 0.1) { //claim balance from winnings so we can keep betting
                 claimExistingBalance();
             }
-            if(decisionMaker.shouldBet()) {
-                doBet(newStartingRound, 0.01); //TODO: INSERT YOUR CONDITIONAL STRATEGY ON WHEN TO BET, BASED ON THE STATS THE PROGRAM IS COLLECTING
+            if(decisionMaker.shouldBet(crashLevelsSinceStart)) {
+                doBet(newStartingRound, 0.02); //min 0.02 some hidden fee throws 0x6e TODO: INSERT YOUR CONDITIONAL STRATEGY ON WHEN TO BET, BASED ON THE STATS THE PROGRAM IS COLLECTING
             }
-        } catch (RpcException | DecoderException e) {
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }

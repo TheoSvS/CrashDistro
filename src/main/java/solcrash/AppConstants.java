@@ -1,4 +1,4 @@
-package org.example;
+package solcrash;
 
 import lombok.Getter;
 import org.p2p.solanaj.core.Account;
@@ -36,7 +36,7 @@ public class AppConstants {
     @Getter
     private static Account fromAccount;
     @Getter
-    private static boolean bettingEnabled;
+    private static EBetMode eBetMode;
     @Getter
     private static ECashoutLevels eCashoutLvl;
     @Getter
@@ -44,7 +44,7 @@ public class AppConstants {
     public static final String BET_COST_LAMPORTS = "BET_COST_LAMPORTS";
     public static final String BET_CASHOUT158 = "ce37026a71dc11a301006500" + GAME_ROUND + "00000000" + BET_COST_LAMPORTS + "00000000013000000065794a316332567958326c6b496a6f694d6a41344e6a41334f44497949697769595730694f6949784c6a5534496e303d";
     public static final String BET_CASHOUT400 = "ce37026a71dc11a301006500" + GAME_ROUND + "00000000" + BET_COST_LAMPORTS + "00000000013000000065794a316332567958326c6b496a6f694d6a41344e6a41334f44497949697769595730694f6949304c6a4177496e303d";
-    public static final double BET_FEE_PCT = 1.03;
+    public static final double BET_FEE_PCT = 1.02;
     public static final String CLAIM_FUNDS = "3ec6d6c1d59f6cd20100";
     public static final String CRASH_PROGRAM_ID = "CRSHdMVmWgRsarrRWnRXWKMxJhLEUheiU6SEhqCLS4Gm";
     public static final BigDecimal SOL_LAMPORTS = new BigDecimal(1_000_000_000);
@@ -138,7 +138,7 @@ public class AppConstants {
         reload();
         readSecret();
         System.out.println(DataUtils.getTime() + " ===");
-        readIfBettingEnabled();
+        readBettingMode();
         readCashoutLvl();
     }
 
@@ -154,10 +154,10 @@ public class AppConstants {
         System.out.println("Chosen cashout: " + eCashoutLvl.getCashoutLvl());
     }
 
-    private static void readIfBettingEnabled() {
-        String enableBettingStr = props.getProperty("bettingEnabled", "false");
-        bettingEnabled = Boolean.parseBoolean(enableBettingStr);
-        System.out.println("Currently Betting: " + bettingEnabled);
+    private static void readBettingMode() {
+        String betModeStr = props.getProperty("bettingMode", "false");
+        eBetMode = EBetMode.fromString(betModeStr);
+        System.out.println("Currently Betting: " + eBetMode);
     }
 
     private static void reload() {

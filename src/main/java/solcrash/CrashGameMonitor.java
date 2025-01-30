@@ -49,7 +49,9 @@ public class CrashGameMonitor {
 
     private Long finishedRound = 0L;
     private Long newStartingRound = 0L;
-    private List<BigDecimal> crashLevelsSinceStart = new ArrayList<>();
+
+    @Getter
+    private final List<BigDecimal> crashLevelsSinceStart = new ArrayList<>();
     private int finishedRoundPlayers;
 
     public CrashGameMonitor() throws InterruptedException {
@@ -76,8 +78,10 @@ public class CrashGameMonitor {
                         storeEnemyBankBalanceChangeFromLastRound();
                     } else if (url.contains("icon-handout")) { //as the round counter has incremented to new round
                         Optional<CrashData> crashDataOpt = crawlHistory();
-                        conditionalBetAsync(newStartingRound);
-                        storeRoundOutputs(crashDataOpt);
+                        if(crashDataOpt.isPresent()) {
+                            conditionalBetAsync(newStartingRound);
+                            storeRoundOutputs(crashDataOpt);
+                        }
                     }
                 }
         );
@@ -159,7 +163,7 @@ public class CrashGameMonitor {
 
     private void conditionalBetAsync(long newStartingRound) {
         //scheduled executor. Give me a few seconds to think if I want to change the bettingEnabled property for the following rounds..
-        executorService.schedule(() -> bettooor.doConditionalBet(newStartingRound), 13, TimeUnit.SECONDS);
+        executorService.schedule(() -> bettooor.doConditionalBet(newStartingRound,crashLevelsSinceStart), 13, TimeUnit.SECONDS);
     }
 
     /**

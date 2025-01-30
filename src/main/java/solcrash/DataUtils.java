@@ -26,7 +26,7 @@ public class DataUtils {
 //For desired cashout levels, this concurrent hashmap holds the lastX games winning outputs for the selected history depth
 private static final int HISTORICAL_ROUNDS_DEPTH=50;
 @Getter
-private static final  ConcurrentHashMap<BigDecimal,Map<Integer,CircularFifoQueue<Double>>> winOutputsAtLastXGames = new ConcurrentHashMap<>();
+private static final  ConcurrentHashMap<BigDecimal,Map<Integer,CircularFifoQueue<Double>>> lastXGamesWinOutputsPerCashoutLvl = new ConcurrentHashMap<>();
 
     static void storeBettingOutputs(CrashData crashData, BigDecimal cashOutLvL) {
         List<BigDecimal> crashLevelsSinceStart = crashData.crashLevelsSinceStart();
@@ -63,9 +63,9 @@ private static final  ConcurrentHashMap<BigDecimal,Map<Integer,CircularFifoQueue
     }
 
     private static void storeBetOutputsToMap(BigDecimal cashOutLvL, LastXWinOutput lastXWinOutput, Integer xRounds){
-        winOutputsAtLastXGames.putIfAbsent(cashOutLvL, new HashMap<>());
-        winOutputsAtLastXGames.get(cashOutLvL).putIfAbsent(xRounds, new CircularFifoQueue<>(HISTORICAL_ROUNDS_DEPTH));
-        winOutputsAtLastXGames.get(cashOutLvL).get(xRounds).add(lastXWinOutput.winOutput());
+        lastXGamesWinOutputsPerCashoutLvl.putIfAbsent(cashOutLvL, new HashMap<>());
+        lastXGamesWinOutputsPerCashoutLvl.get(cashOutLvL).putIfAbsent(xRounds, new CircularFifoQueue<>(HISTORICAL_ROUNDS_DEPTH));
+        lastXGamesWinOutputsPerCashoutLvl.get(cashOutLvL).get(xRounds).add(lastXWinOutput.winOutput());
     }
 
     private static @NotNull LastXWinOutput getLastXwinningOutputs(List<BigDecimal> lastXrounds, BigDecimal cashOutLvL) {
